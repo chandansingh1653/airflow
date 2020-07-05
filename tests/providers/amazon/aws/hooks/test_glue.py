@@ -66,6 +66,7 @@ class TestGlueJobHook(unittest.TestCase):
         mock_glue_job = mock_get_conn.return_value.get_job()['Job']['Name']
         glue_job = AwsGlueJobHook(job_name='aws_test_glue_job',
                                   desc='This is test case job from Airflow',
+                                  python_job=False,
                                   script_location=some_script,
                                   iam_role_name='my_test_role',
                                   s3_bucket=some_s3_bucket,
@@ -91,6 +92,7 @@ class TestGlueJobHook(unittest.TestCase):
         glue_job_run_state = AwsGlueJobHook(job_name='aws_test_glue_job',
                                             desc='This is test case job from Airflow',
                                             iam_role_name='my_test_role',
+                                            python_job=False,
                                             script_location=some_script,
                                             s3_bucket=some_s3_bucket,
                                             region_name=self.some_aws_region)\

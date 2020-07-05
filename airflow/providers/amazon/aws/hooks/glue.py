@@ -32,6 +32,7 @@ class AwsGlueJobHook(AwsBaseHook):
     :type desc: Optional[str]
     :param concurrent_run_limit: The maximum number of concurrent runs allowed for a job
     :type concurrent_run_limit: int
+    :param python_job : boolean  Set this to true if you want to run python job
     :param script_location: path to etl script on s3
     :type script_location: Optional[str]
     :param retry_limit: Maximum number of times to retry this job if it fails
@@ -45,6 +46,7 @@ class AwsGlueJobHook(AwsBaseHook):
     :param s3_bucket: S3 bucket where logs and local etl script will be uploaded
     :type s3_bucket: Optional[str]
     """
+
     JOB_POLL_INTERVAL = 6  # polls job status after every JOB_POLL_INTERVAL seconds
 
     def __init__(self,
@@ -52,6 +54,7 @@ class AwsGlueJobHook(AwsBaseHook):
                  job_name=None,
                  desc=None,
                  concurrent_run_limit=1,
+                 python_job=False,
                  script_location=None,
                  retry_limit=0,
                  num_of_dpus=10,
@@ -61,6 +64,7 @@ class AwsGlueJobHook(AwsBaseHook):
         self.job_name = job_name
         self.desc = desc
         self.concurrent_run_limit = concurrent_run_limit
+        self.python_job = python_job
         self.script_location = script_location
         self.retry_limit = retry_limit
         self.num_of_dpus = num_of_dpus
@@ -162,17 +166,33 @@ class AwsGlueJobHook(AwsBaseHook):
             s3_log_path = f's3://{self.s3_bucket}/{self.s3_glue_logs}{self.job_name}'
             execution_role = self.get_iam_execution_role()
             try:
-                create_job_response = glue_client.create_job(
-                    Name=self.job_name,
-                    Description=self.desc,
-                    LogUri=s3_log_path,
-                    Role=execution_role['Role']['RoleName'],
-                    ExecutionProperty={"MaxConcurrentRuns": self.concurrent_run_limit},
-                    Command={"Name": "glueetl", "ScriptLocation": self.script_location},
-                    MaxRetries=self.retry_limit,
-                    AllocatedCapacity=self.num_of_dpus
-                )
-                return create_job_response['Name']
+                if self.python_job:
+                    create_job_response = glue_client.create_job(
+                        Name=self.job_name,
+                        Description=self.desc,
+                        LogUri=s3_log_path,
+                        Role=execution_role['Role']['RoleName'],
+                        ExecutionProperty={"MaxConcurrentRuns": self.concurrent_run_limit},
+                        Command={"Name": "glueetl", "ScriptLocation": self.script_location},
+                        MaxRetries=self.retry_limit,
+                        MaxCapacity=self.num_of_dpus
+                    )
+                    return create_job_response['Name']
+                else:
+                    max_capacity_allowed_values = [0.0625, 1]
+                    if self.num_of_dpus in max_capacity_allowed_values:
+                        create_job_response = glue_client.create_job(
+                            Name=self.job_name,
+                            Description=self.desc,
+                            LogUri=s3_log_path,
+                            Role=execution_role['Role']['RoleName'],
+                            ExecutionProperty={"MaxConcurrentRuns": self.concurrent_run_limit},
+                            Command={"Name": "pythonshell", "ScriptLocation": self.script_location, "PythonVersion": 3},
+                            MaxRetries=self.retry_limit,
+                            MaxCapacity=self.num_of_dpus
+                        )
+                        return create_job_response['Name']
+
             except Exception as general_error:
                 self.log.error("Failed to create aws glue job, error: %s", general_error)
                 raise

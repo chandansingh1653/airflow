@@ -51,6 +51,7 @@ class AwsGlueJobOperator(BaseOperator):
     :type s3_bucket: Optional[str]
     :param iam_role_name: AWS IAM Role for Glue Job Execution
     :type iam_role_name: Optional[str]
+    :param python_job : boolean
     """
     template_fields = ()
     template_ext = ()
@@ -69,6 +70,7 @@ class AwsGlueJobOperator(BaseOperator):
                  region_name=None,
                  s3_bucket=None,
                  iam_role_name=None,
+                 python_job=False,
                  *args, **kwargs
                  ):  # pylint: disable=too-many-arguments
         super(AwsGlueJobOperator, self).__init__(*args, **kwargs)
@@ -83,6 +85,7 @@ class AwsGlueJobOperator(BaseOperator):
         self.region_name = region_name
         self.s3_bucket = s3_bucket
         self.iam_role_name = iam_role_name
+        self.python_job = python_job
         self.s3_protocol = "s3://"
         self.s3_artifcats_prefix = 'artifacts/glue-scripts/'
 
@@ -105,7 +108,8 @@ class AwsGlueJobOperator(BaseOperator):
                                   aws_conn_id=self.aws_conn_id,
                                   region_name=self.region_name,
                                   s3_bucket=self.s3_bucket,
-                                  iam_role_name=self.iam_role_name)
+                                  iam_role_name=self.iam_role_name,
+                                  python_job=self.python_job)
         self.log.info("Initializing AWS Glue Job: %s", self.job_name)
         glue_job_run = glue_job.initialize_job(self.script_args)
         self.log.info(
